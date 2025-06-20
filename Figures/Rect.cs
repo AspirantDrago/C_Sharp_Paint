@@ -1,9 +1,12 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 
 namespace WindowsFormsApp4.Figures
 {
+    [Serializable]
     public class Rect : Figure
     {
+        public Rect() : base() {}
         public Rect(Size size, Point location) : base(size, location) {}
 
         public override void Draw(Graphics g)
@@ -13,10 +16,11 @@ namespace WindowsFormsApp4.Figures
                 new SolidBrush(MainColor),
                 rect
             );
-            g.DrawRectangle(
-                new Pen(BorderColor, BorderWidth),
-                rect
-            );
+            if (BorderWidth > 0)
+                g.DrawRectangle(
+                    new Pen(BorderColor, BorderWidth),
+                    rect
+                );
         }
     }
 }
