@@ -18,6 +18,9 @@ namespace WindowsFormsApp4
         private Color _backColor = Color.Red;
         private Color _borderColor = Color.Black;
         private uint borderW = 2;
+        private XmlSerializer serializer = new XmlSerializer(typeof(List<Figure>));
+
+        private Type _typeOfFigure = typeof(Rect);
 
         public Color BackColor
         {
@@ -47,7 +50,13 @@ namespace WindowsFormsApp4
             }
         }
 
-
+        void NewDocument()
+        {
+            _figures.Clear();
+            _deletedFigures.Clear();
+            TempFigure = null;
+            Refresh();
+        }
 
         void AddFigure(Figure f)
         {
@@ -57,6 +66,7 @@ namespace WindowsFormsApp4
             undoBtn.Enabled = undoMenuItem.Enabled;
             redoMenuItem.Enabled = false;
             redoBtn.Enabled = redoMenuItem.Enabled;
+            mainFigurePanel.Refresh();
         }
 
         void Undo()
@@ -68,7 +78,7 @@ namespace WindowsFormsApp4
             undoBtn.Enabled = undoMenuItem.Enabled;
             redoMenuItem.Enabled = true;
             redoBtn.Enabled = redoMenuItem.Enabled;
-            Refresh();
+            mainFigurePanel.Refresh();
         }
 
         void Redo()
@@ -80,28 +90,27 @@ namespace WindowsFormsApp4
             redoBtn.Enabled = redoMenuItem.Enabled;
             undoMenuItem.Enabled = true;
             undoBtn.Enabled = undoMenuItem.Enabled;
-            Refresh();
+            mainFigurePanel.Refresh();
         } 
 
         public Form1()
         {
             InitializeComponent();
-            DoubleBuffered = true;
-        }
-
-        private void Form1_Paint(object sender, PaintEventArgs e)
-        {
-            foreach (var f in _figures)
-            {
-                f.Draw(e.Graphics);
-            }
-            TempFigure?.Draw(e.Graphics);
+            this.SetStyle(ControlStyles.UserPaint |
+                          ControlStyles.AllPaintingInWmPaint |
+                          ControlStyles.ResizeRedraw |
+                          ControlStyles.ContainerControl |
+                          ControlStyles.OptimizedDoubleBuffer |
+                          ControlStyles.SupportsTransparentBackColor
+                , true);
         }
 
         private void Form1_MouseDown(object sender, MouseEventArgs e)
         {
             StartPoint = e.Location;
-            TempFigure = new Rect(new Size(0, 0), e.Location);
+            TempFigure = (Figure)Activator.CreateInstance(_typeOfFigure,
+                new Size(0, 0), e.Location
+            );
         }
 
         private void Form1_MouseMove(object sender, MouseEventArgs e)
@@ -114,7 +123,7 @@ namespace WindowsFormsApp4
                 Math.Min(p.Y, e.Y)
             );
 
-            TempFigure = new Rect(
+            TempFigure = (Figure)Activator.CreateInstance(_typeOfFigure,
                 new Size(
                     Math.Abs(e.X - p.X),
                     Math.Abs(e.Y - p.Y)
@@ -124,7 +133,7 @@ namespace WindowsFormsApp4
             TempFigure.MainColor = BackColor;
             TempFigure.BorderColor = BorderColor;
             TempFigure.BorderWidth = borderW;
-            Refresh();
+            tempFigurePanel.Refresh();
         }
 
         private void Form1_MouseUp(object sender, MouseEventArgs e)
@@ -170,7 +179,7 @@ namespace WindowsFormsApp4
             catch (Exception exception)
             {
                 borderW = 0;
-                Console.WriteLine(exception);
+
             }
             borderWidth.Text = borderW + " px";
         }
@@ -186,20 +195,86 @@ namespace WindowsFormsApp4
         {
             try
             {
-                var ser = new XmlSerializer(typeof(List<Figure>));
+                
                 using (var ss = new StreamWriter(filename))
                 {
-                    ser.Serialize(ss, _figures);
+                    serializer.Serialize(ss, _figures);
                 }
             }
             catch (Exception e)
             {
-                MessageBox.Show(
-                    e.ToString(),
-                    "Ошибка",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Asterisk
-                );
+                ShowErrorMessage(e);
+            }
+        }
+
+        private void новыйДокументToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            NewDocument();
+        }
+
+        private void открытьToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (openFileDialog.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
+            try
+            {
+                using (var fs = new StreamReader(openFileDialog.FileName))
+                {
+                    NewDocument();
+                    _figures = (List<Figure>)serializer.Deserialize(fs);
+                    mainFigurePanel.Refresh();
+                }
+            }
+            catch (Exception exception)
+            {
+                ShowErrorMessage(exception);
+            }
+        }
+
+        void ShowErrorMessage(Exception e)
+        {
+            MessageBox.Show(
+                e.ToString(),
+                "Ошибка",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Asterisk
+            );
+        }
+
+        private void selectFugureBtn(object btn)
+        {
+            foreach (ToolStripButton obj in figuresToolStrip.Items)
+            {
+                obj.Checked = false;
+            }
+            (btn as ToolStripButton).Checked = true;
+        }
+
+        private void toolStripButton1_Click(object sender, EventArgs e)
+        {
+            selectFugureBtn(sender);
+            _typeOfFigure = typeof(Rect);
+        }
+
+        private void toolStripButton2_Click(object sender, EventArgs e)
+        {
+            selectFugureBtn(sender);
+            _typeOfFigure = typeof(Ellipse);
+        }
+
+        private void tempFigurePanel_Paint(object sender, PaintEventArgs e)
+        {
+            TempFigure?.Draw(e.Graphics);
+        }
+
+        private void toolStripContainer1_ContentPanel_Paint(object sender, PaintEventArgs e)
+        {
+            foreach (var f in _figures)
+            {
+                f.Draw(e.Graphics);
             }
         }
     }
